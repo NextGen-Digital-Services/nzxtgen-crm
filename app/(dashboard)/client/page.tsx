@@ -35,7 +35,7 @@ export default async function ClientPortalPage() {
     .from('users')
     .select('role')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const userRole = profile?.role
 

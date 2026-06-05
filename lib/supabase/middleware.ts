@@ -48,7 +48,7 @@ export async function updateSession(request: NextRequest) {
         .from('users')
         .select('role')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
       
       if (profile) {
         role = profile.role
@@ -58,8 +58,13 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  const isAdminPath = url.pathname === '/admin' || url.pathname.startsWith('/admin/')
-  const isClientPath = url.pathname === '/client' || url.pathname.startsWith('/client/')
+  const isAdminPath =
+    url.pathname === '/admin' ||
+    url.pathname.startsWith('/admin/')
+
+  const isClientPath =
+    url.pathname === '/client' ||
+    url.pathname.startsWith('/client/')
 
   // 1. Unauthenticated Router Guards
   if (!user) {
@@ -84,24 +89,26 @@ export async function updateSession(request: NextRequest) {
 
     // Role: super_admin routing
     if (role === 'super_admin') {
-      if (url.pathname === '/admin-login' || url.pathname === '/portal-login') {
+      if (url.pathname === '/admin-login') {
         url.pathname = '/admin'
         return NextResponse.redirect(url)
       }
-      if (isClientPath) {
-        url.pathname = '/admin'
+      if (url.pathname === '/portal-login' || isClientPath) {
+        await supabase.auth.signOut()
+        url.pathname = '/portal-login'
         return NextResponse.redirect(url)
       }
     }
 
     // Role: client routing
     if (role === 'client') {
-      if (url.pathname === '/admin-login' || url.pathname === '/portal-login') {
+      if (url.pathname === '/portal-login') {
         url.pathname = '/client'
         return NextResponse.redirect(url)
       }
-      if (isAdminPath) {
-        url.pathname = '/portal-login'
+      if (url.pathname === '/admin-login' || isAdminPath) {
+        await supabase.auth.signOut()
+        url.pathname = '/admin-login'
         return NextResponse.redirect(url)
       }
     }

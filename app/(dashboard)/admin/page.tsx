@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatCurrency, formatDate } from '@/lib/utils'
+
+export const dynamic = 'force-dynamic'
 import { 
   FiUsers, 
   FiTrendingUp, 

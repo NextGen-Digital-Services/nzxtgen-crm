@@ -18,7 +18,7 @@ export async function GET(request: Request) {
           .from('users')
           .select('role')
           .eq('id', user.id)
-          .single()
+          .maybeSingle()
 
         if (profile?.role === 'super_admin') {
           return NextResponse.redirect(`${origin}/admin`)

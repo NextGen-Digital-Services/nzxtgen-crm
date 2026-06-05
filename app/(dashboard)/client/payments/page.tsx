@@ -24,7 +24,7 @@ export default async function ClientPaymentsPage() {
     .from('users')
     .select('role')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const userRole = profile?.role
 
