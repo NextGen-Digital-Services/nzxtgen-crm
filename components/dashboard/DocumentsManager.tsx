@@ -91,16 +91,19 @@ export default function DocumentsManager({ initialDocuments, clients }: Document
         .from('crm-documents')
         .upload(filePath, file, { cacheControl: '3600', upsert: true })
 
-      let fileUrl = ''
-
+      // ✅ FIXED: Fail immediately if storage upload fails
       if (storageError) {
-        console.warn('[Storage] Upload failed, falling back to mock URL. (Bucket crm-documents may not exist yet)')
-        // Fallback: create a mock local URL for presentation/tests
-        fileUrl = `https://oekmfydjfaowhwkgiror.supabase.co/storage/v1/object/public/crm-documents/${filePath}`
-      } else {
-        const { data } = supabase.storage.from('crm-documents').getPublicUrl(filePath)
-        fileUrl = data.publicUrl
+        setUploadProgress('')
+        setMessage({ 
+          error: `Storage upload failed: ${storageError.message}. Ensure the 'crm-documents' bucket exists and is properly configured.`, 
+          success: '' 
+        })
+        return
       }
+
+      // ✅ FIXED: Only proceed if storage upload was successful
+      const { data } = supabase.storage.from('crm-documents').getPublicUrl(filePath)
+      const fileUrl = data.publicUrl
 
       setUploadProgress('Saving metadata to ledger...')
 
