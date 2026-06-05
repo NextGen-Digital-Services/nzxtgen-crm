@@ -36,10 +36,12 @@ export default async function AdminClientsPage() {
     .order('created_at', { ascending: false })
 
   // 3. Query global services lookup with dynamic self-seeding fallback
-  let { data: services } = await supabase
+  let { data: services, error: servicesError } = await supabase
     .from('services')
     .select('*')
     .order('name', { ascending: true })
+
+  console.log('🔍 Services Query Result:', { services, error: servicesError })
 
   if (!services || services.length === 0) {
     const defaultServices = [
@@ -54,14 +56,20 @@ export default async function AdminClientsPage() {
       'Paid Advertising'
     ]
     const inserts = defaultServices.map(name => ({ name }))
-    const { data: seeded } = await supabase
+    const { data: seeded, error: seedError } = await supabase
       .from('services')
       .insert(inserts)
       .select()
+    
+    console.log('🌱 Seeding Result:', { seeded, error: seedError })
+    
     if (seeded) {
       services = seeded.sort((a, b) => a.name.localeCompare(b.name))
+      console.log('✅ Services after seeding:', services)
     }
   }
+
+  console.log('📦 Final Services Array Passed to Component:', services)
 
   return (
     <DashboardLayout 

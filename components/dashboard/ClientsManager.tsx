@@ -38,6 +38,9 @@ export default function ClientsManager({ initialClients, services }: ClientsMana
   const [searchQuery, setSearchQuery] = useState('')
   const [isPending, startTransition] = useTransition()
   
+  // Debug: Log services received
+  console.log('📊 ClientsManager received services:', services?.length || 0, 'items', services)
+  
   // Modals visibility state
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingClientData, setEditingClientData] = useState<any | null>(null)
@@ -796,6 +799,7 @@ export default function ClientsManager({ initialClients, services }: ClientsMana
                 
                 <div>
                   <label className="block text-zinc-500 mb-1 font-bold">Select Purchased Services (One or multiple) *</label>
+                  {console.log('🎯 Rendering services dropdown with', services.length, 'services:', services.map(s => s.name))}
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     {services.map((s: any) => {
                       const isSelected = selectedServiceIds.includes(s.id)
