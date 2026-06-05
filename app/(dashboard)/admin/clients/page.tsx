@@ -29,11 +29,17 @@ export default async function AdminClientsPage() {
     redirect('/portal-login')
   }
 
-  // 2. Query clients with services and budgets sub-relations
+  // 2. Query clients with client_services and tasks sub-relations
   const { data: clients } = await supabase
     .from('clients')
-    .select('*, services(*), ad_budgets(*)')
+    .select('*, client_services(*, services(*)), tasks(*)')
     .order('created_at', { ascending: false })
+
+  // 3. Query global services lookup
+  const { data: services } = await supabase
+    .from('services')
+    .select('*')
+    .order('name', { ascending: true })
 
   return (
     <DashboardLayout 
@@ -41,7 +47,7 @@ export default async function AdminClientsPage() {
       email={user.email!} 
       title="Client Accounts"
     >
-      <ClientsManager initialClients={clients || []} />
+      <ClientsManager initialClients={clients || []} services={services || []} />
     </DashboardLayout>
   )
 }

@@ -41,7 +41,7 @@ export default function PaymentsManager({ initialPayments, clients }: PaymentsMa
 
   // Find services for currently selected client in Record modal
   const selectedClientObject = clients.find(c => c.id === selectedFormClientId)
-  const clientServices = selectedClientObject?.services || []
+  const clientServices = selectedClientObject?.client_services || []
 
   const handleRecordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -211,7 +211,7 @@ export default function PaymentsManager({ initialPayments, clients }: PaymentsMa
                   <option value="">-- Select active service --</option>
                   {clientServices.map((s: any) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} (Remaining: {formatCurrency(s.remaining_balance)})
+                      {s.services?.name || s.custom_name || 'Service'} (Remaining: {formatCurrency(s.remaining_balance)})
                     </option>
                   ))}
                 </select>
@@ -226,7 +226,7 @@ export default function PaymentsManager({ initialPayments, clients }: PaymentsMa
               {/* Amount and Date */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-500 mb-1">Payment Amount ($) *</label>
+                  <label className="block text-zinc-500 mb-1">Payment Amount (₹) *</label>
                   <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-500">
                       <FiDollarSign className="h-4 w-4" />

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
             templateName: 'payment_reminder',
             parameters: {
               name: client.name,
-              amount: `$${parseFloat(amount).toFixed(2)}`,
+              amount: `₹${parseFloat(amount).toLocaleString('en-IN')}`,
               due_date: dueDate,
               service_name: serviceName,
               portal_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/client/payments`,
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
           await supabase.from('notifications').insert({
             user_id: clientUser.user_id,
             title: 'Payment Reminder',
-            message: `A payment of $${parseFloat(amount).toFixed(2)} is due on ${dueDate} for ${serviceName}.`,
+            message: `A payment of ₹${parseFloat(amount).toLocaleString('en-IN')} is due on ${dueDate} for ${serviceName}.`,
             type: 'payment_reminder',
           })
         }

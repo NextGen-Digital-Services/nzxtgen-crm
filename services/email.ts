@@ -70,7 +70,7 @@ export async function sendWelcomeEmail(clientName: string, clientEmail: string) 
         <h2 style="color: #D4AF37; text-align: center;">Welcome to NzxtGen</h2>
         <p>Hello <strong>${clientName}</strong>,</p>
         <p>Welcome to NzxtGen Digital Services! We are excited to work with you on growing your business and "Turning Clicks Into Customers".</p>
-        <p>Your client portal account is ready. You can log in using your email to view your purchased services, active payments, ad spend status, and reports.</p>
+        <p>Your client portal account is ready. You can log in using your email to view your purchased services, active payments, task completion status, and reports.</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; border: 1px solid #D4AF37;">Log In to Portal</a>
         </div>
@@ -129,7 +129,7 @@ export async function sendPaymentConfirmationEmail(
       <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
         <h2 style="color: #4CAF50;">Payment Received</h2>
         <p>Hello <strong>${clientName}</strong>,</p>
-        <p>We have successfully processed your payment of <strong>$${amount.toFixed(2)}</strong> for the service: <strong>${serviceName}</strong>.</p>
+        <p>We have successfully processed your payment of <strong>₹${amount.toLocaleString('en-IN')}</strong> for the service: <strong>${serviceName}</strong>.</p>
         <p>You can review your complete transaction ledger, download matching invoices, and check remaining balances inside the client portal.</p>
         <p>Thank you for choosing NzxtGen Digital Services!</p>
         <p>Best regards,<br/>NzxtGen Team</p>
@@ -147,12 +147,12 @@ export async function sendDueReminderEmail(
 ) {
   return sendEmail({
     to: [{ email: clientEmail, name: clientName }],
-    subject: `Payment Reminder: $${amount.toFixed(2)} due for ${serviceName}`,
+    subject: `Payment Reminder: ₹${amount.toLocaleString('en-IN')} due for ${serviceName}`,
     htmlContent: `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
         <h2 style="color: #FF9800;">Upcoming Payment Due</h2>
         <p>Hello <strong>${clientName}</strong>,</p>
-        <p>This is a friendly reminder that a payment of <strong>$${amount.toFixed(2)}</strong> is due on <strong>${dueDate}</strong> for: <strong>${serviceName}</strong>.</p>
+        <p>This is a friendly reminder that a payment of <strong>₹${amount.toLocaleString('en-IN')}</strong> is due on <strong>${dueDate}</strong> for: <strong>${serviceName}</strong>.</p>
         <p>Please log in to your portal to review and complete this transaction to ensure uninterrupted service.</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/client/payments" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; border: 1px solid #D4AF37;">View Payment Details</a>

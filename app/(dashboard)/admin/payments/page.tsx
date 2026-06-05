@@ -38,7 +38,7 @@ export default async function AdminPaymentsPage() {
   // 3. Query client accounts with their active services for dropdown linkings
   const { data: clients } = await supabase
     .from('clients')
-    .select('*, services(*)')
+    .select('*, client_services(*, services(*))')
     .order('name', { ascending: true })
 
   return (

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createSimpleClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { triggerWebhook } from '@/services/webhooks'
+import { formatCurrency } from '@/lib/utils'
 import { 
   sendWelcomeEmail, 
   sendAccountCreationEmail,
@@ -37,17 +38,14 @@ export async function addClient(formData: FormData) {
   const notes = formData.get('notes') as string
 
   // Service details
-  const serviceName = formData.get('serviceName') as string
+  const serviceIds = formData.getAll('serviceIds') as string[]
   const serviceCost = parseFloat(formData.get('serviceCost') as string || '0')
   const advancePaid = parseFloat(formData.get('advancePaid') as string || '0')
   const startDate = formData.get('startDate') as string
   const endDate = formData.get('endDate') as string || null
 
-  // Ad budget details
-  const totalBudget = parseFloat(formData.get('totalBudget') as string || '0')
-
-  if (!name || !businessName || !email || !serviceName) {
-    return { error: 'Required fields are missing: Name, Business Name, Email, Service Name' }
+  if (!name || !businessName || !email || serviceIds.length === 0) {
+    return { error: 'Required fields are missing: Name, Business Name, Email, Service Selection' }
   }
 
   try {
@@ -102,40 +100,37 @@ export async function addClient(formData: FormData) {
       return { error: `Failed to create client record: ${clientError.message}` }
     }
 
-    // 3. Insert service for the client
-    const { data: service, error: serviceError } = await supabase
-      .from('services')
-      .insert({
-        client_id: client.id,
-        name: serviceName,
-        status: 'active',
-        start_date: startDate || new Date().toISOString().split('T')[0],
-        end_date: endDate,
-        total_cost: serviceCost,
-        advance_paid: advancePaid,
-      })
-      .select()
-      .single()
+    // 3. Insert services for the client
+    const clientServices = []
+    for (let i = 0; i < serviceIds.length; i++) {
+      const isFirst = i === 0
+      const { data: service, error: serviceError } = await supabase
+        .from('client_services')
+        .insert({
+          client_id: client.id,
+          service_id: serviceIds[i],
+          status: 'active',
+          start_date: startDate || new Date().toISOString().split('T')[0],
+          end_date: endDate,
+          total_cost: isFirst ? serviceCost : 0,
+          advance_paid: isFirst ? advancePaid : 0,
+        })
+        .select()
+        .single()
 
-    if (serviceError) {
-      return { error: `Failed to create service: ${serviceError.message}` }
+      if (serviceError) {
+        return { error: `Failed to create service: ${serviceError.message}` }
+      }
+      clientServices.push(service)
     }
 
-    // 4. Initialize Ad Budget
-    if (totalBudget > 0) {
-      await supabase.from('ad_budgets').insert({
-        client_id: client.id,
-        total_budget: totalBudget,
-        amount_spent: 0,
-        notes: `Initial budget for ${serviceName}`
-      })
-    }
+    const primaryService = clientServices[0]
 
     // 5. If we have advance paid, log as a payment record
-    if (advancePaid > 0) {
+    if (advancePaid > 0 && primaryService) {
       await supabase.from('payments').insert({
         client_id: client.id,
-        service_id: service.id,
+        service_id: primaryService.id,
         amount: advancePaid,
         payment_method: 'Advance Payment',
         status: 'completed',
@@ -154,9 +149,14 @@ export async function addClient(formData: FormData) {
     }
 
     // 7. Fire automation webhooks & emails asynchronously
-    await triggerWebhook('new_client_added', { client, service, totalBudget })
-    await sendWelcomeEmail(name, email)
-    await sendAccountCreationEmail(name, email)
+    if (primaryService) {
+      await triggerWebhook('new_client_added', { client, service: primaryService, totalBudget: 0 })
+      // Resolve standard name of primary service for email notifications
+      const { data: sLookup } = await supabase.from('services').select('name').eq('id', serviceIds[0]).single()
+      const primaryServiceName = sLookup?.name || 'Your service'
+      await sendWelcomeEmail(name, email)
+      await sendAccountCreationEmail(name, email)
+    }
 
     revalidatePath('/admin')
     revalidatePath('/admin/clients')
@@ -296,13 +296,13 @@ export async function recordPayment(formData: FormData) {
     return { error: error.message }
   }
 
-  // If status is completed and serviceId is provided, update service advance_paid balance
+  // If status is completed and serviceId is provided, update client_services advance_paid balance
   if (status === 'completed' && serviceId) {
-    // Read current service cost
-    const { data: service } = await supabase.from('services').select('advance_paid').eq('id', serviceId).single()
+    // Read current client_services advance_paid
+    const { data: service } = await supabase.from('client_services').select('advance_paid').eq('id', serviceId).single()
     if (service) {
       await supabase
-        .from('services')
+        .from('client_services')
         .update({ advance_paid: Number(service.advance_paid) + amount })
         .eq('id', serviceId)
     }
@@ -316,7 +316,7 @@ export async function recordPayment(formData: FormData) {
       await supabase.from('notifications').insert({
         user_id: client.user_id,
         title: 'Payment Received',
-        message: `We successfully recorded your payment of $${amount.toFixed(2)}.`,
+        message: `We successfully recorded your payment of ${formatCurrency(amount)}.`,
         type: 'payment_confirmation'
       })
     }
@@ -324,8 +324,14 @@ export async function recordPayment(formData: FormData) {
     // Fire integrations
     let serviceName = 'Your service'
     if (serviceId) {
-      const { data: s } = await supabase.from('services').select('name').eq('id', serviceId).single()
-      if (s) serviceName = s.name
+      const { data: s } = await supabase
+        .from('client_services')
+        .select('service:services(name)')
+        .eq('id', serviceId)
+        .single()
+      if (s && s.service) {
+        serviceName = (s.service as any).name
+      }
     }
 
     if (status === 'completed') {
@@ -340,67 +346,118 @@ export async function recordPayment(formData: FormData) {
 }
 
 /**
- * AD BUDGET OPERATIONS
+/**
+ * CLIENT TASK OPERATIONS
  */
 
-export async function updateAdBudget(formData: FormData) {
+export async function addTask(formData: FormData) {
   const supabase = await createClient()
 
   const clientId = formData.get('clientId') as string
-  const totalBudget = parseFloat(formData.get('totalBudget') as string)
-  const amountSpent = parseFloat(formData.get('amountSpent') as string)
-  const notes = formData.get('notes') as string
+  const title = formData.get('title') as string
+  const description = formData.get('description') as string
+  const priority = formData.get('priority') as 'low' | 'medium' | 'high' | 'urgent'
+  const dueDate = formData.get('dueDate') as string
 
-  if (!clientId || isNaN(totalBudget) || isNaN(amountSpent)) {
-    return { error: 'Client ID, Total Budget, and Amount Spent are required.' }
+  if (!clientId || !title || !dueDate) {
+    return { error: 'Client ID, Title, and Due Date are required.' }
   }
 
-  // Check if ad budget row exists for client
-  const { data: existingBudget } = await supabase
-    .from('ad_budgets')
-    .select('id')
-    .eq('client_id', clientId)
+  const { data: task, error } = await supabase
+    .from('tasks')
+    .insert({
+      client_id: clientId,
+      title,
+      description,
+      priority: priority || 'medium',
+      status: 'pending',
+      due_date: dueDate,
+    })
+    .select()
     .single()
-
-  let error = null
-  let budget = null
-
-  if (existingBudget) {
-    const { data, error: updateError } = await supabase
-      .from('ad_budgets')
-      .update({
-        total_budget: totalBudget,
-        amount_spent: amountSpent,
-        notes,
-      })
-      .eq('id', existingBudget.id)
-      .select()
-      .single()
-    
-    error = updateError
-    budget = data
-  } else {
-    const { data, error: insertError } = await supabase
-      .from('ad_budgets')
-      .insert({
-        client_id: clientId,
-        total_budget: totalBudget,
-        amount_spent: amountSpent,
-        notes,
-      })
-      .select()
-      .single()
-    
-    error = insertError
-    budget = data
-  }
 
   if (error) {
     return { error: error.message }
   }
 
+  revalidatePath('/admin/clients')
   revalidatePath('/admin')
-  return { success: true, budget }
+  revalidatePath('/client')
+  return { success: true, task }
+}
+
+export async function editTask(formData: FormData) {
+  const supabase = await createClient()
+
+  const taskId = formData.get('taskId') as string
+  const title = formData.get('title') as string
+  const description = formData.get('description') as string
+  const priority = formData.get('priority') as 'low' | 'medium' | 'high' | 'urgent'
+  const status = formData.get('status') as 'pending' | 'in_progress' | 'completed'
+  const dueDate = formData.get('dueDate') as string
+
+  if (!taskId || !title || !dueDate) {
+    return { error: 'Task ID, Title, and Due Date are required.' }
+  }
+
+  const { data: task, error } = await supabase
+    .from('tasks')
+    .update({
+      title,
+      description,
+      priority,
+      status,
+      due_date: dueDate,
+    })
+    .eq('id', taskId)
+    .select()
+    .single()
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/admin/clients')
+  revalidatePath('/admin')
+  revalidatePath('/client')
+  return { success: true, task }
+}
+
+export async function deleteTask(taskId: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('tasks')
+    .delete()
+    .eq('id', taskId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/admin/clients')
+  revalidatePath('/admin')
+  revalidatePath('/client')
+  return { success: true }
+}
+
+export async function toggleTaskComplete(taskId: string, currentStatus: string) {
+  const supabase = await createClient()
+  const nextStatus = currentStatus === 'completed' ? 'pending' : 'completed'
+
+  const { error } = await supabase
+    .from('tasks')
+    .update({ status: nextStatus })
+    .eq('id', taskId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/admin/clients')
+  revalidatePath('/admin')
+  revalidatePath('/client')
+  return { success: true }
 }
 
 /**
