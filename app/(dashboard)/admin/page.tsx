@@ -45,7 +45,26 @@ export default async function AdminDashboardPage() {
   const { data: clientServices, error: servicesErr } = await supabase.from('client_services').select('*, services(name)')
   const { data: payments, error: paymentsErr } = await supabase.from('payments').select('*, clients(name, business_name)').order('payment_date', { ascending: true })
   const { data: tasks, error: tasksErr } = await supabase.from('tasks').select('*')
-  const { data: globalServices, error: globalServErr } = await supabase.from('services').select('*')
+  let { data: globalServices, error: globalServErr } = await supabase.from('services').select('*')
+
+  if (!globalServErr && (!globalServices || globalServices.length === 0)) {
+    const defaultServices = [
+      'SEO Services',
+      'Website Design',
+      'Web & App Development',
+      'Digital Marketing',
+      'Digital PR',
+      'Social Media & Content',
+      'Targeted Advertising',
+      'AI Chatbot Automation',
+      'Paid Advertising'
+    ]
+    const inserts = defaultServices.map(name => ({ name }))
+    const { data: seeded } = await supabase.from('services').insert(inserts).select()
+    if (seeded) {
+      globalServices = seeded
+    }
+  }
 
   // Check if tables are not set up yet
   const schemaNotReady = clientsErr || servicesErr || paymentsErr || tasksErr || globalServErr

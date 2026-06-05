@@ -35,11 +35,33 @@ export default async function AdminClientsPage() {
     .select('*, client_services(*, services(*)), tasks(*)')
     .order('created_at', { ascending: false })
 
-  // 3. Query global services lookup
-  const { data: services } = await supabase
+  // 3. Query global services lookup with dynamic self-seeding fallback
+  let { data: services } = await supabase
     .from('services')
     .select('*')
     .order('name', { ascending: true })
+
+  if (!services || services.length === 0) {
+    const defaultServices = [
+      'SEO Services',
+      'Website Design',
+      'Web & App Development',
+      'Digital Marketing',
+      'Digital PR',
+      'Social Media & Content',
+      'Targeted Advertising',
+      'AI Chatbot Automation',
+      'Paid Advertising'
+    ]
+    const inserts = defaultServices.map(name => ({ name }))
+    const { data: seeded } = await supabase
+      .from('services')
+      .insert(inserts)
+      .select()
+    if (seeded) {
+      services = seeded.sort((a, b) => a.name.localeCompare(b.name))
+    }
+  }
 
   return (
     <DashboardLayout 

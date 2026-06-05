@@ -138,6 +138,68 @@ export async function addClient(formData: FormData) {
       })
     }
 
+    // 5.5 Automatically generate service-specific To Do tasks
+    const defaultTasksByService: Record<string, { title: string; description: string; priority: 'low' | 'medium' | 'high' | 'urgent' }[]> = {
+      'SEO Services': [
+        { title: 'On-page SEO Audit', description: 'Audit meta titles, headings, and site architecture.', priority: 'high' },
+        { title: 'Keyword Research & Mapping', description: 'Identify target search queries and map them to pages.', priority: 'medium' },
+        { title: 'Backlink Strategy Setup', description: 'Outline authority building and outreach link-acquisition strategies.', priority: 'medium' }
+      ],
+      'Website Design': [
+        { title: 'UX Wireframe Review', description: 'Review and approve layouts, structural wireframes, and design flows.', priority: 'high' },
+        { title: 'Visual Theme Branding', description: 'Define typography, color palettes, and brand guidelines.', priority: 'medium' },
+        { title: 'Responsive Design QA', description: 'Verify page layout responsiveness across mobile, tablet, and desktop views.', priority: 'medium' }
+      ],
+      'Web & App Development': [
+        { title: 'Database Schema Setup', description: 'Initialize database tables, key relationships, and indexes.', priority: 'urgent' },
+        { title: 'API Integration Testing', description: 'Setup and test endpoints for integrations and third-party APIs.', priority: 'high' },
+        { title: 'QA Staging Deploy', description: 'Perform full system integration testing on staging environment.', priority: 'high' }
+      ],
+      'Digital Marketing': [
+        { title: 'Audience Competitor Analysis', description: 'Analyze competitor positioning and marketing funnels.', priority: 'medium' },
+        { title: 'Lead Capture Form Integration', description: 'Set up opt-in sheets and dynamic tracking on registration forms.', priority: 'high' }
+      ],
+      'Digital PR': [
+        { title: 'Media Press Release Copy', description: 'Draft compelling PR statements and copy outlines.', priority: 'high' },
+        { title: 'Journalist Contact List', description: 'Compile media contact sheets for distribution.', priority: 'medium' }
+      ],
+      'Social Media & Content': [
+        { title: '30-Day Content Calendar', description: 'Schedule graphic assets, video shorts, and publication plans.', priority: 'high' },
+        { title: 'Graphic Visual Creative Assets', description: 'Build and brand high-fidelity visual layouts.', priority: 'medium' }
+      ],
+      'Targeted Advertising': [
+        { title: 'Ad Pixel Integration', description: 'Deploy tracking conversion scripts (Meta Pixel, Google Tag Manager).', priority: 'urgent' },
+        { title: 'Target Market Segment Definitions', description: 'Build custom audience targets and retargeting segments.', priority: 'high' },
+        { title: 'Ad Graphic Creatives & Copy', description: 'Build media assets and write high-converting caption descriptions.', priority: 'medium' }
+      ],
+      'AI Chatbot Automation': [
+        { title: 'Flow Logic Map Design', description: 'Outline trigger words, query intents, and message sequences.', priority: 'high' },
+        { title: 'Lead Auto-Sync Setup', description: 'Connect conversational outputs with CRM records.', priority: 'urgent' }
+      ],
+      'Paid Advertising': [
+        { title: 'Bidding Campaign Optimization', description: 'Refine keyword bids, search triggers, and budget margins.', priority: 'high' },
+        { title: 'Ad Creative Split testing', description: 'Setup A/B split variants on media assets to increase ROAS.', priority: 'medium' }
+      ]
+    }
+
+    for (const serviceId of serviceIds) {
+      const { data: sObj } = await supabase.from('services').select('name').eq('id', serviceId).single()
+      if (sObj) {
+        const tasksToCreate = defaultTasksByService[sObj.name] || []
+        for (const taskTemplate of tasksToCreate) {
+          const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          await supabase.from('tasks').insert({
+            client_id: client.id,
+            title: taskTemplate.title,
+            description: taskTemplate.description,
+            priority: taskTemplate.priority,
+            status: 'pending',
+            due_date: dueDate
+          })
+        }
+      }
+    }
+
     // 6. Create in-app notifications
     if (userId) {
       await supabase.from('notifications').insert({
