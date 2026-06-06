@@ -799,7 +799,6 @@ export default function ClientsManager({ initialClients, services }: ClientsMana
                 
                 <div>
                   <label className="block text-zinc-500 mb-1 font-bold">Select Purchased Services (One or multiple) *</label>
-                  {console.log('🎯 Rendering services dropdown with', services.length, 'services:', services.map(s => s.name))}
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     {services.map((s: any) => {
                       const isSelected = selectedServiceIds.includes(s.id)
@@ -843,7 +842,7 @@ export default function ClientsManager({ initialClients, services }: ClientsMana
                   </div>
                   <div>
                     <label className="block text-zinc-500 mb-1 font-semibold">Start Date</label>
-                    <input type="date" name="startDate" defaultValue={new Date().toISOString().split('T')[0]} className="w-full rounded p-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-black dark:text-white" />
+                    <input type="date" name="startDate" defaultValue={new Date().toISOString().split('T')[0]} suppressHydrationWarning={true} className="w-full rounded p-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-black dark:text-white" />
                   </div>
                 </div>
 
